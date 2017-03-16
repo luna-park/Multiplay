@@ -43,13 +43,14 @@ public class MainActivity extends Activity implements MultiplayEvent {
 ```java
     void onChangeDeviceList(ArrayList<WifiP2pDevice> wifiP2pDevices);
 ```
+See also: https://developer.android.com/reference/android/net/wifi/p2p/WifiP2pDevice.html
 
 #### On data receive:
 ```java
     void onReceiveData(String s);
 ```
 
-### For data send use:
+### 4. For data send use:
 ```java
     multiplay.send("Data");   
 ```
