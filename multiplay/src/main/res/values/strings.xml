@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Multiplay Lib</string>
+    <string name="t_devices">Devices:\n</string>
 </resources>
