@@ -6,6 +6,7 @@ import android.content.IntentFilter;
 import android.net.wifi.WpsInfo;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
+import android.net.wifi.p2p.WifiP2pGroup;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.util.Log;
@@ -30,7 +31,7 @@ import java.util.concurrent.Executors;
 public class Multiplay implements WifiP2pManager.ActionListener, ReceiverEvent {
 
     private final WifiP2pManager.ActionListener connectionListener;
-    private final Runnable addressSender;
+
     private Context context;
     private String TAG = "Multiplay";
 
@@ -47,11 +48,13 @@ public class Multiplay implements WifiP2pManager.ActionListener, ReceiverEvent {
     private int port, bufferSize;
     private byte[] buffer;
     private ExecutorService executorService;
+    private Runnable addressSender, dataSender;
     private DatagramSocket dsReceive, dsSend;
     private DatagramPacket dpReceive, dpSend;
     private final Runnable serverReceiver;
     private InetAddress address;
     private String localAddress;
+    private byte[] data;
 
     /**
      * Initialize Multiplay library
@@ -66,12 +69,7 @@ public class Multiplay implements WifiP2pManager.ActionListener, ReceiverEvent {
         this.multiplayEvent = multiplayEvent;
         this.port = port;
         this.bufferSize = bufferSize;
-
-        localAddress = getLocalIPAddress(true);
-        Log.e(TAG, "Local address: " + localAddress);
-
-        buffer = new byte[1024];
-
+        buffer = new byte[bufferSize];
         try {
             dsReceive = new DatagramSocket(port);
             dsSend = new DatagramSocket();
@@ -108,7 +106,9 @@ public class Multiplay implements WifiP2pManager.ActionListener, ReceiverEvent {
         addressSender = new Runnable() {
             @Override
             public void run() {
-                for (int i = 0; i < 20; i++) {
+                localAddress = getLocalIPAddress(true);
+                Log.e(TAG, "Local address: " + localAddress);
+                for (int i = 0; i < 10; i++) {
                     send(localAddress);
                     try {
                         Thread.sleep(1000);
@@ -117,6 +117,24 @@ public class Multiplay implements WifiP2pManager.ActionListener, ReceiverEvent {
                     }
                 }
                 Log.e(TAG, "Stop send address");
+            }
+        };
+
+        dataSender = new Runnable() {
+            @Override
+            public void run() {
+                dpSend.setData(data);
+                dpSend.setLength(data.length);
+                try {
+                    if (address != null) {
+                        dpSend.setAddress(address);
+                        dsSend.send(dpSend);
+                    } else {
+                        Log.e(TAG, "Address is null");
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
         };
 
@@ -178,9 +196,33 @@ public class Multiplay implements WifiP2pManager.ActionListener, ReceiverEvent {
 
     public void disconnect() {
         Log.e(TAG, "Disconnect");
-        dsSend.close();
+        if (dsSend != null) dsSend.close();
         executorService.shutdown();
-        mManager.cancelConnect(mChannel, connectionListener);
+
+        if (mManager != null && mChannel != null) {
+            mManager.requestGroupInfo(mChannel, new WifiP2pManager.GroupInfoListener() {
+                @Override
+                public void onGroupInfoAvailable(WifiP2pGroup group) {
+                    if (group != null && mManager != null && mChannel != null
+                            && group.isGroupOwner()) {
+                        mManager.removeGroup(mChannel, new WifiP2pManager.ActionListener() {
+
+                            @Override
+                            public void onSuccess() {
+                                Log.d(TAG, "removeGroup onSuccess -");
+                            }
+
+                            @Override
+                            public void onFailure(int reason) {
+                                Log.d(TAG, "removeGroup onFailure -" + reason);
+                            }
+                        });
+                    }
+                }
+            });
+            mManager.cancelConnect(mChannel, connectionListener);
+        }
+
     }
 
 
@@ -189,20 +231,8 @@ public class Multiplay implements WifiP2pManager.ActionListener, ReceiverEvent {
     }
 
     public void send(byte[] data) {
-//        if (connected) {
-        dpSend.setData(data);
-        dpSend.setLength(data.length);
-        try {
-            if (address != null) {
-                dpSend.setAddress(address);
-                dsSend.send(dpSend);
-            } else {
-                Log.e(TAG, "Address is null");
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-//        }
+        this.data = data;
+        executorService.submit(dataSender);
     }
 
     private String getErrorReason(int reason) {
@@ -278,7 +308,6 @@ public class Multiplay implements WifiP2pManager.ActionListener, ReceiverEvent {
                 for (InetAddress addr : addrs) {
                     if (!addr.isLoopbackAddress()) {
                         String sAddr = addr.getHostAddress();
-                        //boolean isIPv4 = InetAddressUtils.isIPv4Address(sAddr);
                         boolean isIPv4 = sAddr.indexOf(':') < 0;
 
                         if (useIPv4) {
