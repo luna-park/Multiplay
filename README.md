@@ -16,7 +16,7 @@ allprojects {
 ```gradle
 dependencies {
     compile fileTree(include: ['*.jar'], dir: 'libs')
-    compile 'com.github.luna-park:Multiplay:1.0'
+    compile 'com.github.luna-park:Multiplay:1.1'
 }
 ```
 ### 3. Add to MainActivity.java:
