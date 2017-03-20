@@ -23,7 +23,8 @@ dependencies {
 ```java
 public class MainActivity extends Activity implements MultiplayEvent {
 ...
-   multiplay = new Multiplay(Context, MultiplayEvent, port, buffer_size);
+   multiplay = new Multiplay(context, port, buffer_size);
+   multiplay.registerMultiplayEvent(this);
    
    // Start peers discovery
    multiplay.discoverPeers();

@@ -50,10 +50,6 @@ public class MainActivity extends Activity implements MultiplayEvent {
         });
 
         hosts = new ArrayList<String>();
-//        hosts.add("Sample");
-//        hosts.add("Sample");
-//        hosts.add("Sample");
-//        hosts.add("Sample");
 
         ArrayAdapter<String> arrayAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, hosts);
         lvHosts.setAdapter(arrayAdapter);
@@ -67,9 +63,9 @@ public class MainActivity extends Activity implements MultiplayEvent {
             }
         });
 
-        multiplay = new Multiplay(this, this, 8888, 256);
+        multiplay = new Multiplay(this, 8888, 256);
+        multiplay.registerMultiplayEvent(this);
         multiplay.discoverPeers();
-
     }
 
     @Override
@@ -106,23 +102,12 @@ public class MainActivity extends Activity implements MultiplayEvent {
 
     @Override
     public void onChangeDeviceList(ArrayList<WifiP2pDevice> wifiP2pDevices) {
-        Log.e(TAG, "Device list size: " + wifiP2pDevices.size());
-        String testDeviceName = "ye_olde_well";
-//        String testDeviceName = "l-p_p_d";
-//        tvInfo.setText("");
+
+
         hosts.clear();
         p2pDevices = wifiP2pDevices;
         for (WifiP2pDevice device : wifiP2pDevices) {
             hosts.add(device.deviceName);
-//            tvInfo.append("\n");
-//            tvInfo.append(device.deviceName);
-//            tvInfo.append("\n");
-//            tvInfo.append(device.deviceAddress);
-//
-//            if (device.deviceName.equals(testDeviceName)) {
-////                multiplay.connect(device);
-//                break;
-//            }
         }
         lvHosts.invalidateViews();
     }

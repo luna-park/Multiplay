@@ -39,14 +39,11 @@ public class Multiplay implements WifiP2pManager.ActionListener, ReceiverEvent {
     private WifiP2pManager.Channel mChannel;
     private BroadcastReceiver mReceiver;
     private IntentFilter mIntentFilter;
-    private MultiplayEvent multiplayEvent;
+    //    private MultiplayEvent multiplayEvent;
     private boolean connected;
-    private WifiP2pInfo info;
-    private WifiP2pDevice device;
 
-    // UDP Networking
-    private int port, bufferSize;
-    private byte[] buffer;
+    private ArrayList<MultiplayEvent> multiplayEvents;
+
     private ExecutorService executorService;
     private Runnable addressSender, dataSender;
     private DatagramSocket dsReceive, dsSend;
@@ -60,16 +57,14 @@ public class Multiplay implements WifiP2pManager.ActionListener, ReceiverEvent {
      * Initialize Multiplay library
      *
      * @param context        - app context
-     * @param multiplayEvent - Multiplay event listener class
      * @param port           - port
      * @param bufferSize     - buffer size in bytes (1024)
      */
-    public Multiplay(Context context, final MultiplayEvent multiplayEvent, final int port, int bufferSize) {
+    public Multiplay(Context context, final int port, int bufferSize) {
         this.context = context;
-        this.multiplayEvent = multiplayEvent;
-        this.port = port;
-        this.bufferSize = bufferSize;
-        buffer = new byte[bufferSize];
+        multiplayEvents = new ArrayList<MultiplayEvent>();
+
+        byte[] buffer = new byte[bufferSize];
         try {
             dsReceive = new DatagramSocket(port);
             dsSend = new DatagramSocket();
@@ -97,7 +92,7 @@ public class Multiplay implements WifiP2pManager.ActionListener, ReceiverEvent {
                         Log.e(TAG, "Received server address: " + address.getHostAddress());
                     } else {
                         // For client and server
-                        multiplayEvent.onReceiveData(s);
+                        eventReceive(s);
                     }
                 }
             }
@@ -108,7 +103,7 @@ public class Multiplay implements WifiP2pManager.ActionListener, ReceiverEvent {
             public void run() {
                 localAddress = getLocalIPAddress(true);
                 Log.e(TAG, "Local address: " + localAddress);
-                for (int i = 0; i < 10; i++) {
+                for (int i = 0; i < 15; i++) {
                     send(localAddress);
                     try {
                         Thread.sleep(1000);
@@ -159,14 +154,48 @@ public class Multiplay implements WifiP2pManager.ActionListener, ReceiverEvent {
             public void onFailure(int reason) {
                 //failure logic
                 connected = false;
-                multiplayEvent.onFailure(getErrorReason(reason));
+                eventFail(reason);
+//                multiplayEvent.onFailure(getErrorReason(reason));
             }
         };
 
     }
 
+    public void registerMultiplayEvent(MultiplayEvent event) {
+        multiplayEvents.add(event);
+    }
+
+    private void eventFail(int reason) {
+        for (int i = 0; i < multiplayEvents.size(); i++) {
+            MultiplayEvent event = multiplayEvents.get(i);
+            event.onFailure(getErrorReason(reason));
+        }
+    }
+
+    private void eventReceive(String s) {
+        for (int i = 0; i < multiplayEvents.size(); i++) {
+            MultiplayEvent event = multiplayEvents.get(i);
+            event.onReceiveData(s);
+        }
+    }
+
+    private void eventChangeDeviceList(ArrayList<WifiP2pDevice> wifiP2pDevices) {
+        for (int i = 0; i < multiplayEvents.size(); i++) {
+            MultiplayEvent event = multiplayEvents.get(i);
+            event.onChangeDeviceList(wifiP2pDevices);
+        }
+    }
+
+    private void eventConnectionChange(boolean isClient) {
+        for (int i = 0; i < multiplayEvents.size(); i++) {
+            MultiplayEvent event = multiplayEvents.get(i);
+            event.onConnectionChange(isClient);
+        }
+    }
+
     // TODO Optimize it
     private String getString(DatagramPacket datagramPacket) {
+
         return new String(datagramPacket.getData()).substring(0, datagramPacket.getLength());
     }
 
@@ -186,7 +215,6 @@ public class Multiplay implements WifiP2pManager.ActionListener, ReceiverEvent {
     }
 
     public void connect(final WifiP2pDevice device) {
-        this.device = device;
         WifiP2pConfig config = new WifiP2pConfig();
         config.deviceAddress = device.deviceAddress;
         config.wps.setup = WpsInfo.PBC;
@@ -256,7 +284,7 @@ public class Multiplay implements WifiP2pManager.ActionListener, ReceiverEvent {
     @Override
     public void onFailure(int reason) {
         connected = false;
-        multiplayEvent.onFailure(getErrorReason(reason));
+        eventFail(reason);
     }
 
     @Override
@@ -267,13 +295,12 @@ public class Multiplay implements WifiP2pManager.ActionListener, ReceiverEvent {
     public void onPeerChange(ArrayList<WifiP2pDevice> wifiP2pDevices) {
         if (!connected) {
             Log.e(TAG, "Peers change");
-            multiplayEvent.onChangeDeviceList(wifiP2pDevices);
+            eventChangeDeviceList(wifiP2pDevices);
         }
     }
 
     @Override
     public void onConnectionChange(WifiP2pInfo info) {
-        this.info = info;
         boolean isClient = info.isGroupOwner;
         connected = true;
         Log.e(TAG, "Connection change. Client: " + isClient);
@@ -286,8 +313,7 @@ public class Multiplay implements WifiP2pManager.ActionListener, ReceiverEvent {
             address = null;
         }
         executorService.submit(serverReceiver);
-        multiplayEvent.onConnectionChange(isClient);
-
+        eventConnectionChange(isClient);
     }
 
     private InetAddress setAddr(String sName) {
