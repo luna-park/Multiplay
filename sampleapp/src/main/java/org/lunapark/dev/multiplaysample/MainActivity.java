@@ -29,6 +29,7 @@ public class MainActivity extends Activity implements MultiplayEvent {
     private Button btnSend;
     private ArrayList<String> hosts;
     private ArrayList<WifiP2pDevice> p2pDevices;
+    private ArrayAdapter<String> arrayAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,7 +52,7 @@ public class MainActivity extends Activity implements MultiplayEvent {
 
         hosts = new ArrayList<String>();
 
-        ArrayAdapter<String> arrayAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, hosts);
+        arrayAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, hosts);
         lvHosts.setAdapter(arrayAdapter);
 
         lvHosts.setOnItemClickListener(new AdapterView.OnItemClickListener() {
@@ -109,7 +110,8 @@ public class MainActivity extends Activity implements MultiplayEvent {
         for (WifiP2pDevice device : wifiP2pDevices) {
             hosts.add(device.deviceName);
         }
-        lvHosts.invalidateViews();
+//        lvHosts.invalidateViews();
+        arrayAdapter.notifyDataSetChanged();
     }
 
     @Override
